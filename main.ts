@@ -419,7 +419,7 @@ const CARDS: Card[] = [
   { icon: "ship", head: "SPARTA II ABLAZE", deck: "Drones hit the sanctioned Russian cargo ship; 16 crew off.", src: "REUTERS" },
   { icon: "mount", head: "NEPAL PM IN NEW DELHI", deck: "Balendra Shah's first foreign trip; talks with Modi on Monday.", src: "ANI" },
   { icon: "ship", head: "TANKERS HIT IN HORMUZ", deck: "UKMTO: stern and engine-room strikes; no casualties.", src: "UKMTO" },
-  { icon: "bolt", head: "IRAN POWER RATIONING", deck: "Rolling ~2-hour cuts from Sunday as war damage bites.", src: "RFE/RL" },
+  { icon: "bolt", head: "IRAN POWER RATIONING", deck: "Rolling 2-hour cuts from Sunday as war damage bites.", src: "RFE/RL" },
   { icon: "star", head: "EISENKOT TO FORM GOVT", deck: "Herzog picks the ex-army chief over Netanyahu; 67 of 120 MKs back him.", src: "WIRES" },
   { icon: "quake", head: "M6.9 QUAKE SHAKES PERU", deck: "39+ homes damaged, a teenager hurt; felt in Lima.", src: "USGS" },
 ];
@@ -461,7 +461,7 @@ const BRIEFS: string[] = [
   "ATP Finals final set: Alcaraz vs Zverev, Turin, Sun [ATP]",
   "Premier League: Leeds stun Chelsea 4\u20131 at Stamford Bridge [BBC]",
   "F1 Las Vegas: Verstappen WINS; Norris 2nd +0.639s, Piastri 3rd [F1]",
-  "US approved ~879,000 AI chips for China in six months [THE REGISTER]",
+  "US approved 879,000 AI chips for China in six months [THE REGISTER]",
   "EU\u2013UK conclude 3 deals: food safety, carbon market, youth mobility [20 NOV]",
   "Merz ties EU budget backing to all states funding Ukraine [FT]",
 ];
@@ -469,8 +469,8 @@ const BRIEFS: string[] = [
 const STATS: { n: string; label: string }[] = [
   { n: "2", label: "TANKERS HIT IN HORMUZ" },
   { n: "16", label: "CREW OFF SPARTA II" },
-  { n: "400+", label: "DRONES IN THE BARRAGE" },
-  { n: "82,500", label: "MARCH IN FRANCE" },
+  { n: "400+", label: "DRONES FRI 20 NOV" },
+  { n: "82,500", label: "MARCH SAT 21 NOV" },
   { n: "$7.25bn", label: "ROUNDUP SETTLEMENT" },
   { n: "1,671", label: "GAZA DEAD SINCE TRUCE" },
 ];
@@ -485,7 +485,7 @@ const TIMELINE: { t: string; label: string }[] = [
 const DATE_CHECK =
   "DATE CHECK \u2014 LEFT OUT: Shenzhen summit (19 Nov) \u00b7 Riemann claim (20 Nov) \u00b7 " +
   "Norway oil ruling (13 Nov) \u00b7 Gibran resignation (12\u201313 Nov) \u00b7 Kinmen drill (3 Nov). " +
-  "Every story here happened, or was first reported, on 22 Nov 2026 in at least one time zone.";
+  "Every story here topped the news on Sunday 22 November 2026; the date beside each story is when it happened or was first reported.";
 
 // Extra glyphs used by the copy: en dash and the minus sign.
 Object.assign(FONT, {
@@ -662,11 +662,28 @@ const CONTINENTS: [number, number, number, number][] = [
   [18, 4, 21, 27], [92, 50, 52, 24], [78, 21, 9, 12],
   [104, 10, 14, 11], [134, -25, 17, 9],
 ];
-const HOTSPOTS: [number, number][] = [
-  [50.5, 26.2], [33.4, 47.9], [-108.5, 25.6], [30.7, 36.9],
-  [21, 52.2], [-77, -12], [34.5, 31.5], [-115.1, 36.2], [7.7, 45.1],
+const HOTSPOTS: [number, number, number, number?, number?][] = [
+  [50.5, 26.2, 1], [33.4, 47.9, 2], [-108.5, 25.6, 3], [30.7, 36.9, 4],
+  [21, 52.2, 7], [-77, -12, 30], [34.5, 31.5, 27, 7, -5], [-115.1, 36.2, 49], [7.7, 45.1, 47],
 ];
 function drawMap(x: number, y: number, w: number, h: number): void {
+  // Continent outlines: perimeters of the lon/lat ellipses, so the land
+  // reads as recognisable shapes, not just a band of dots.
+  for (const [clon, clat, rx, ry] of CONTINENTS) {
+    const steps = 48;
+    let lx = 0;
+    let ly = 0;
+    for (let i = 0; i <= steps; i++) {
+      const t = (i / steps) * Math.PI * 2;
+      const lon = clon + rx * Math.cos(t);
+      const lat = clat + ry * Math.sin(t);
+      const sx = Math.round(x + ((lon + 180) / 360) * w);
+      const sy = Math.round(y + ((90 - lat) / 180) * h);
+      if (i > 0) line(lx, ly, sx, sy, INK);
+      lx = sx;
+      ly = sy;
+    }
+  }
   const step = 7;
   for (let gy = y + 3; gy < y + h - 3; gy += step) {
     for (let gx = x + 3; gx < x + w - 3; gx += step) {
@@ -683,11 +700,25 @@ function drawMap(x: number, y: number, w: number, h: number): void {
       if (land) rect(gx, gy, 2, 2, INK);
     }
   }
-  for (const [lon, lat] of HOTSPOTS) {
+  for (const [lon, lat, num, dlon = 0, dlat = 0] of HOTSPOTS) {
     const hx = x + ((lon + 180) / 360) * w;
     const hy = y + ((90 - lat) / 180) * h;
-    circle(Math.round(hx), Math.round(hy), 4, PAPER);
-    circle(Math.round(hx), Math.round(hy), 3, RED);
+    // A pin offset from its true spot (crowded cluster) gets a leader
+    // line back to the true point, so numbers never overlap.
+    const px = x + ((lon + dlon + 180) / 360) * w;
+    const py = y + ((90 - (lat + dlat)) / 180) * h;
+    if (dlon !== 0 || dlat !== 0) {
+      line(Math.round(hx), Math.round(hy), Math.round(px), Math.round(py), RED);
+      circle(Math.round(hx), Math.round(hy), 2, RED);
+    }
+    circle(Math.round(px), Math.round(py), 7, PAPER);
+    circle(Math.round(px), Math.round(py), 6, RED);
+    const label = String(num);
+    drawText(
+      Math.round(px) - Math.floor(textWidth(label, 1) / 2),
+      Math.round(py) - 3,
+      label, 1, PAPER,
+    );
   }
 }
 
@@ -750,7 +781,7 @@ function build(): void {
   // ---- region bar
   hline(24, 449, 976, INK);
   drawSpaced(
-    ["EUROPE 10", "ASIA-PACIFIC 8", "MIDDLE EAST 8", "AMERICAS 7", "AFRICA 4", "MARKETS & TECH 5", "SPORT 5"],
+    ["EUROPE 10", "\u00b7", "ASIA-PACIFIC 8", "\u00b7", "MIDDLE EAST 8", "\u00b7", "AMERICAS 7", "\u00b7", "AFRICA 4", "\u00b7", "MARKETS & TECH 5", "\u00b7", "SPORT 5"],
     24, 454, 976, 2, INK, true,
   );
   hline(24, 471, 976, INK);
@@ -772,7 +803,7 @@ function build(): void {
   drawMap(24, 627, 976, 62);
   drawTextCentered(
     24, 693, 976,
-    "RED DOTS MARK WHERE THE DAY HAPPENED: BAHRAIN \u00b7 KRYVYI RIH \u00b7 GUASAVE \u00b7 ANTALYA \u00b7 WARSAW \u00b7 LIMA \u00b7 GAZA \u00b7 LAS VEGAS \u00b7 TURIN",
+    "NUMBERED PINS MARK WHERE THE DAY HAPPENED: 1 BAHRAIN \u00b7 2 KRYVYI RIH \u00b7 3 GUASAVE \u00b7 4 ANTALYA \u00b7 7 WARSAW \u00b7 30 LIMA \u00b7 27 GAZA \u00b7 49 LAS VEGAS \u00b7 47 TURIN",
     1, INK,
   );
   // ---- UTC timeline
